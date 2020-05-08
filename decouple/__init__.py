@@ -1,27 +1,26 @@
 # coding: utf-8
+
+from __future__ import annotations
+
 import os
 import sys
 import string
 from shlex import shlex
+from configparser import ConfigParser
 from io import open
 from collections import OrderedDict
 from distutils.util import strtobool
-
-# Useful for very coarse version differentiation.
-PY3 = sys.version_info[0] == 3
-
-if PY3:
-    from configparser import ConfigParser
-    text_type = str
-else:
-    from ConfigParser import SafeConfigParser as ConfigParser
-    text_type = unicode
+from typing import Any, cast as type_cast, Callable, Dict, Iterable, Optional, List, Tuple, Type, TypeVar, Union
 
 DEFAULT_ENCODING = 'UTF-8'
 
 class UndefinedValueError(Exception):
     pass
 
+T = TypeVar('T')
+
+def _cast_do_nothing(value: T) -> T:
+    return value
 
 class Undefined(object):
     """
@@ -39,58 +38,62 @@ class Config(object):
     Handle .env file format used by Foreman.
     """
 
-    def __init__(self, repository):
+    def __init__(self, repository: RepositoryEmpty) -> None:
         self.repository = repository
 
-    def _cast_boolean(self, value):
+    def _cast_boolean(self, value: Any) -> bool:
         """
         Helper to convert config values to boolean as ConfigParser do.
         """
         value = str(value)
         return bool(value) if value == '' else bool(strtobool(value))
 
-    @staticmethod
-    def _cast_do_nothing(value):
-        return value
-
-    def get(self, option, default=undefined, cast=undefined):
+    def get(
+        self,
+        option: str,
+        default: Union[Undefined, Any] = undefined,
+        cast: Callable[[Any], T] = _cast_do_nothing,
+    ) -> T:
         """
         Return the value for option or default if defined.
         """
 
         # We can't avoid __contains__ because value may be empty.
+        value: Union[None, str, T]
         if option in os.environ:
             value = os.environ[option]
         elif option in self.repository:
             value = self.repository[option]
+        elif isinstance(default, Undefined):
+            raise UndefinedValueError('{} not found. Declare it as envvar or define a default value.'.format(option))
         else:
-            if isinstance(default, Undefined):
-                raise UndefinedValueError('{} not found. Declare it as envvar or define a default value.'.format(option))
-
             value = default
 
-        if isinstance(cast, Undefined):
-            cast = self._cast_do_nothing
-        elif cast is bool:
-            cast = self._cast_boolean
+        if cast is bool:
+            cast = type_cast(Callable[[Any], T], self._cast_boolean)
 
         return cast(value)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(
+        self,
+        option: str,
+        default: Union[Undefined, T] = undefined,
+        cast: Callable[[Any], T] = _cast_do_nothing,
+    ) -> T:
         """
         Convenient shortcut to get.
         """
-        return self.get(*args, **kwargs)
+        return self.get(option=option, default=default, cast=cast)
 
 
 class RepositoryEmpty(object):
-    def __init__(self, source='', encoding=DEFAULT_ENCODING):
+    def __init__(self, source: str = '', encoding: str = DEFAULT_ENCODING) -> None:
         pass
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         return False
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Optional[str]:
         return None
 
 
@@ -100,16 +103,16 @@ class RepositoryIni(RepositoryEmpty):
     """
     SECTION = 'settings'
 
-    def __init__(self, source, encoding=DEFAULT_ENCODING):
+    def __init__(self, source: str, encoding: str = DEFAULT_ENCODING) -> None:
         self.parser = ConfigParser()
         with open(source, encoding=encoding) as file_:
             self.parser.readfp(file_)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         return (key in os.environ or
                 self.parser.has_option(self.SECTION, key))
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Optional[str]:
         return self.parser.get(self.SECTION, key)
 
 
@@ -117,8 +120,8 @@ class RepositoryEnv(RepositoryEmpty):
     """
     Retrieves option keys from .env files with fall back to os.environ.
     """
-    def __init__(self, source, encoding=DEFAULT_ENCODING):
-        self.data = {}
+    def __init__(self, source: str, encoding: str = DEFAULT_ENCODING) -> None:
+        self.data: Dict[str, str] = {}
 
         with open(source, encoding=encoding) as file_:
             for line in file_:
@@ -132,10 +135,10 @@ class RepositoryEnv(RepositoryEmpty):
                     v = v.strip('\'"')
                 self.data[k] = v
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         return key in os.environ or key in self.data
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> str:
         return self.data[key]
 
 
@@ -157,11 +160,11 @@ class AutoConfig(object):
 
     encoding = DEFAULT_ENCODING
 
-    def __init__(self, search_path=None):
+    def __init__(self, search_path: Optional[str] = None) -> None:
         self.search_path = search_path
-        self.config = None
+        self.config: Optional[Config] = None
 
-    def _find_file(self, path):
+    def _find_file(self, path: str) -> str:
         # look for all files in the current path
         for configfile in self.SUPPORTED:
             filename = os.path.join(path, configfile)
@@ -176,7 +179,7 @@ class AutoConfig(object):
         # reached root without finding any files.
         return ''
 
-    def _load(self, path):
+    def _load(self, path: str) -> None:
         # Avoid unintended permission errors
         try:
             filename = self._find_file(os.path.abspath(path))
@@ -186,17 +189,28 @@ class AutoConfig(object):
 
         self.config = Config(Repository(filename, encoding=self.encoding))
 
-    def _caller_path(self):
+    def _caller_path(self) -> str:
         # MAGIC! Get the caller's module path.
         frame = sys._getframe()
-        path = os.path.dirname(frame.f_back.f_back.f_code.co_filename)
+        parent_frame = frame.f_back
+        assert parent_frame
+        grandparent_frame = parent_frame.f_back
+        assert grandparent_frame
+        path = os.path.dirname(grandparent_frame.f_code.co_filename)
         return path
 
-    def __call__(self, *args, **kwargs):
+    def __call__(
+        self,
+        option: str,
+        default: Union[Undefined, T] = undefined,
+        cast: Callable[[Any], T] = _cast_do_nothing,
+    ) -> T:
+
         if not self.config:
             self._load(self.search_path or self._caller_path())
+            assert self.config
 
-        return self.config(*args, **kwargs)
+        return self.config(option=option, default=default, cast=cast)
 
 
 # A pré-instantiated AutoConfig to improve decouple's usability
@@ -205,12 +219,19 @@ config = AutoConfig()
 
 # Helpers
 
+
 class Csv(object):
     """
     Produces a csv parser that return a list of transformed elements.
     """
 
-    def __init__(self, cast=text_type, delimiter=',', strip=string.whitespace, post_process=list):
+    def __init__(
+        self,
+        cast: Callable[[Any], Any] = str,
+        delimiter: str = ',',
+        strip: str = string.whitespace,
+        post_process: Callable[[Any], Iterable[T]] = list,
+    ) -> None:
         """
         Parameters:
         cast -- callable that transforms the item just before it's added to the list.
@@ -223,7 +244,7 @@ class Csv(object):
         self.strip = strip
         self.post_process = post_process
 
-    def __call__(self, value):
+    def __call__(self, value: str) -> Iterable[T]:
         """The actual transformation"""
         transform = lambda s: self.cast(s.strip(self.strip))
 
@@ -239,7 +260,12 @@ class Choices(object):
     Allows for cast and validation based on a list of choices.
     """
 
-    def __init__(self, flat=None, cast=text_type, choices=None):
+    def __init__(
+        self,
+        flat: Optional[List[Any]] = None,
+        cast: Callable[[Any], Any] = str,
+        choices: Optional[Iterable[Tuple[Any, str]]] = None,
+    ) -> None:
         """
         Parameters:
         flat -- a flat list of valid choices.
@@ -255,7 +281,7 @@ class Choices(object):
         self._valid_values.extend([value for value, _ in self.choices])
 
 
-    def __call__(self, value):
+    def __call__(self, value: Any) -> Any:
         transform = self.cast(value)
         if transform not in self._valid_values:
             raise ValueError((

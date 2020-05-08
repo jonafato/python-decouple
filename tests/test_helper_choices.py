@@ -1,5 +1,5 @@
 # coding: utf-8
-import pytest
+import pytest  # type: ignore
 from decouple import Choices
 
 
@@ -24,7 +24,7 @@ ALLOWED_NUMBERS = (
     )
 
 
-def test_default_cast_with_flat_list():
+def test_default_cast_with_flat_list() -> None:
     """Default cast with a flat list."""
     choices = Choices(['a', 'b', 'c'])
     assert 'a' == choices('a')
@@ -35,7 +35,7 @@ def test_default_cast_with_flat_list():
         choices('d')
 
 
-def test_cast_to_int_with_flat_list():
+def test_cast_to_int_with_flat_list() -> None:
     """Cast to int with a flat list."""
     choices = Choices([3, 5, 7], cast=int)
     assert 3 == choices('3')
@@ -46,7 +46,7 @@ def test_cast_to_int_with_flat_list():
         choices(1)
 
 
-def test_default_with_django_like_choices():
+def test_default_with_django_like_choices() -> None:
     """Default cast with a Django-like choices tuple."""
     choices = Choices(choices=ALLOWED_FRUITS)
     assert 'apple' == choices('apple')
@@ -57,7 +57,7 @@ def test_default_with_django_like_choices():
         choices('strawberry')
 
 
-def test_cast_to_int_with_django_like_choices():
+def test_cast_to_int_with_django_like_choices() -> None:
     """Cast to int with a Django-like choices tuple."""
     choices = Choices(cast=int, choices=ALLOWED_NUMBERS)
     assert 0 == choices('0')
@@ -68,7 +68,7 @@ def test_cast_to_int_with_django_like_choices():
         choices(1)
 
 
-def test_default_cast_with_booth_flat_list_and_django_like_choices():
+def test_default_cast_with_booth_flat_list_and_django_like_choices() -> None:
     """Default cast with booth flat list and Django-like choices tuple."""
     choices = Choices(['a', 'b', 'c'], choices=ALLOWED_FRUITS)
     assert 'a' == choices('a')
@@ -85,7 +85,7 @@ def test_default_cast_with_booth_flat_list_and_django_like_choices():
         choices('watermelon')
 
 
-def test_cast_to_int_with_booth_flat_list_and_django_like_choices():
+def test_cast_to_int_with_booth_flat_list_and_django_like_choices() -> None:
     """Cast to int with booth flat list and Django-like choices tuple."""
     choices = Choices([7, 14, 42], cast=int, choices=ALLOWED_NUMBERS)
     assert 7 == choices('7')

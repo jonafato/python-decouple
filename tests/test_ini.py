@@ -1,17 +1,11 @@
 # coding: utf-8
+from __future__ import annotations
 import os
 import sys
 from mock import patch, mock_open
-import pytest
+import pytest  # type: ignore
 from decouple import Config, RepositoryIni, UndefinedValueError
-
-# Useful for very coarse version differentiation.
-PY3 = sys.version_info[0] == 3
-
-if PY3:
-    from io import StringIO
-else:
-    from io import BytesIO as StringIO
+from io import StringIO
 
 
 
@@ -38,25 +32,25 @@ KeyOverrideByEnv=NotThis
 '''
 
 @pytest.fixture(scope='module')
-def config():
+def config() -> Config:
     with patch('decouple.open', return_value=StringIO(INIFILE), create=True):
         return Config(RepositoryIni('settings.ini'))
 
 
-def test_ini_comment(config):
+def test_ini_comment(config: Config) -> None:
     with pytest.raises(UndefinedValueError):
         config('CommentedKey')
 
 
-def test_ini_percent_escape(config):
+def test_ini_percent_escape(config: Config) -> None:
     assert '%' == config('PercentIsEscaped')
 
 
-def test_ini_interpolation(config):
+def test_ini_interpolation(config: Config) -> None:
     assert 'off' == config('Interpolation')
 
 
-def test_ini_bool_true(config):
+def test_ini_bool_true(config: Config) -> None:
     assert True is config('KeyTrue', cast=bool)
     assert True is config('KeyOne', cast=bool)
     assert True is config('KeyYes', cast=bool)
@@ -65,7 +59,7 @@ def test_ini_bool_true(config):
     assert True is config('Key1int', default=1, cast=bool)
 
 
-def test_ini_bool_false(config):
+def test_ini_bool_false(config: Config) -> None:
     assert False is config('KeyFalse', cast=bool)
     assert False is config('KeyZero', cast=bool)
     assert False is config('KeyNo', cast=bool)
@@ -75,49 +69,49 @@ def test_ini_bool_false(config):
     assert False is config('Key0int', default=0, cast=bool)
 
 
-def test_init_undefined(config):
+def test_init_undefined(config: Config) -> None:
     with pytest.raises(UndefinedValueError):
         config('UndefinedKey')
 
 
-def test_ini_default_none(config):
+def test_ini_default_none(config: Config) -> None:
     assert None is config('UndefinedKey', default=None)
 
 
-def test_ini_default_bool(config):
+def test_ini_default_bool(config: Config) -> None:
     assert False is config('UndefinedKey', default=False, cast=bool)
     assert True is config('UndefinedKey', default=True, cast=bool)
 
 
-def test_ini_default(config):
+def test_ini_default(config: Config) -> None:
     assert False is config('UndefinedKey', default=False)
     assert True is config('UndefinedKey', default=True)
 
 
-def test_ini_default_invalid_bool(config):
+def test_ini_default_invalid_bool(config: Config) -> None:
     with pytest.raises(ValueError):
         config('UndefinedKey', default='NotBool', cast=bool)
 
 
-def test_ini_empty(config):
+def test_ini_empty(config: Config) -> None:
     assert '' is config('KeyEmpty', default=None)
 
 
-def test_ini_support_space(config):
+def test_ini_support_space(config: Config) -> None:
     assert 'text' == config('IgnoreSpace')
 
 
-def test_ini_os_environ(config):
+def test_ini_os_environ(config: Config) -> None:
     os.environ['KeyOverrideByEnv'] = 'This'
     assert 'This' == config('KeyOverrideByEnv')
     del os.environ['KeyOverrideByEnv']
 
 
-def test_ini_undefined_but_present_in_os_environ(config):
+def test_ini_undefined_but_present_in_os_environ(config: Config) -> None:
     os.environ['KeyOnlyEnviron'] = ''
     assert '' == config('KeyOnlyEnviron')
     del os.environ['KeyOnlyEnviron']
 
 
-def test_ini_empty_string_means_false(config):
+def test_ini_empty_string_means_false(config: Config) -> None:
     assert False is config('KeyEmpty', cast=bool)

@@ -1,25 +1,25 @@
 # coding: utf-8
 import os
-import pytest
+import pytest  # type: ignore
 from mock import patch, mock_open
-from decouple import AutoConfig, UndefinedValueError, RepositoryEmpty, DEFAULT_ENCODING, PY3
+from decouple import AutoConfig, UndefinedValueError, RepositoryEmpty, DEFAULT_ENCODING
 
 
-def test_autoconfig_env():
+def test_autoconfig_env() -> None:
     config = AutoConfig()
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'env', 'project')
     with patch.object(config, '_caller_path', return_value=path):
         assert 'ENV' == config('KEY')
 
 
-def test_autoconfig_ini():
+def test_autoconfig_ini() -> None:
     config = AutoConfig()
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'ini', 'project')
     with patch.object(config, '_caller_path', return_value=path):
         assert 'INI' == config('KEY')
 
 
-def test_autoconfig_ini_in_subdir():
+def test_autoconfig_ini_in_subdir() -> None:
     """
     When `AutoConfig._find_file()` gets a relative path from
     `AutoConfig._caller_path()`, it will not properly search back to parent
@@ -38,7 +38,7 @@ def test_autoconfig_ini_in_subdir():
         assert 'INI' == config('KEY')
 
 
-def test_autoconfig_none():
+def test_autoconfig_none() -> None:
     os.environ['KeyFallback'] = 'On'
     config = AutoConfig()
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'none')
@@ -47,7 +47,7 @@ def test_autoconfig_none():
     del os.environ['KeyFallback']
 
 
-def test_autoconfig_exception():
+def test_autoconfig_exception() -> None:
     os.environ['KeyFallback'] = 'On'
     config = AutoConfig()
     with patch('os.path.isfile', side_effect=Exception('PermissionDenied')):
@@ -55,7 +55,7 @@ def test_autoconfig_exception():
     del os.environ['KeyFallback']
 
 
-def test_autoconfig_is_not_a_file():
+def test_autoconfig_is_not_a_file() -> None:
     os.environ['KeyFallback'] = 'On'
     config = AutoConfig()
     with patch('os.path.isfile', return_value=False):
@@ -63,22 +63,23 @@ def test_autoconfig_is_not_a_file():
     del os.environ['KeyFallback']
 
 
-def test_autoconfig_search_path():
+def test_autoconfig_search_path() -> None:
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'env', 'custom-path')
     config = AutoConfig(path)
     assert 'CUSTOMPATH' == config('KEY')
 
 
-def test_autoconfig_empty_repository():
+def test_autoconfig_empty_repository() -> None:
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'env', 'custom-path')
     config = AutoConfig(path)
 
     with pytest.raises(UndefinedValueError):
         config('KeyNotInEnvAndNotInRepository')
 
+    assert config.config
     assert isinstance(config.config.repository, RepositoryEmpty)
 
-def test_autoconfig_ini_default_encoding():
+def test_autoconfig_ini_default_encoding() -> None:
     config = AutoConfig()
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'ini', 'project')
     filename = os.path.join(os.path.dirname(__file__), 'autoconfig', 'ini', 'project', 'settings.ini')
@@ -88,7 +89,7 @@ def test_autoconfig_ini_default_encoding():
             assert 'ENV' == config('KEY', default='ENV')
             mopen.assert_called_once_with(filename, encoding=DEFAULT_ENCODING)
 
-def test_autoconfig_env_default_encoding():
+def test_autoconfig_env_default_encoding() -> None:
     config = AutoConfig()
     path = os.path.join(os.path.dirname(__file__), 'autoconfig', 'env', 'project')
     filename = os.path.join(os.path.dirname(__file__), 'autoconfig', 'env', '.env')
